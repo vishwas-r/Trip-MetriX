@@ -61,7 +61,7 @@ export const Speedometer: React.FC<SpeedometerProps> = ({ speed }) => {
         <View style={styles.container}>
             <View style={{ width: SIZE, height: SIZE }}>
                 <Image
-                    source={require('../../assets/icon.png')}
+                    source={require('../../assets/logo.png')}
                     style={[styles.backgroundImage, { opacity: isDark ? 0.25 : 0.1 }]}
                 />
                 <Svg width={SIZE} height={SIZE}>

@@ -12,15 +12,21 @@ import TripDetailScreen from './src/screens/TripDetailScreen';
 import CarListScreen from './src/screens/CarListScreen';
 import AddCarScreen from './src/screens/AddCarScreen';
 import { RootStackParamList, RootTabParamList, HistoryStackParamList, SettingsStackParamList } from './src/navigation/types';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSettingsStore } from './src/store/settingsStore';
 import * as SplashScreen from 'expo-splash-screen';
 import CustomSplashScreen from './src/screens/SplashScreen';
-import { useFonts, Orbitron_400Regular, Orbitron_500Medium, Orbitron_600SemiBold, Orbitron_700Bold } from '@expo-google-fonts/orbitron';
+import { useFonts, Orbitron_400Regular, Orbitron_500Medium, Orbitron_600SemiBold, Orbitron_700Bold, Orbitron_800ExtraBold, Orbitron_900Black } from '@expo-google-fonts/orbitron';
 import { Rajdhani_300Light, Rajdhani_400Regular, Rajdhani_500Medium, Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
 
 // Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
+try {
+  SplashScreen.preventAutoHideAsync().catch(() => {
+    /* reload the app */
+  });
+} catch (e) {
+  console.warn('SplashScreen.preventAutoHideAsync() failed', e);
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -69,83 +75,61 @@ function SettingsStackNavigator() {
   );
 }
 
-function TabNavigator() {
+function MainApp() {
   const { theme, accentColor } = useSettingsStore();
 
   const isDark = theme === 'dark' || (theme === 'system' && true);
   const tabBgColor = isDark ? 'black' : 'white';
   const tabBorderColor = isDark ? '#333' : '#e5e7eb';
-  const inactiveColor = isDark ? '#6b7280' : '#9ca3af';
+  const inactiveColor = isDark ? '#666666' : '#999999';
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: tabBgColor,
-          borderTopColor: tabBorderColor,
+          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+          borderTopColor: isDark ? '#333333' : '#e5e5e5',
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: accentColor,
         tabBarInactiveTintColor: inactiveColor,
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'home';
-
-          if (route.name === 'Dashboard') {
-            iconName = focused ? 'speedometer' : 'speedometer-outline';
-          } else if (route.name === 'History') {
-            iconName = focused ? 'time' : 'time-outline';
-          } else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
         tabBarLabelStyle: {
-          fontFamily: 'Orbitron_600SemiBold',
-          fontSize: 10,
-          marginBottom: 4,
+          fontFamily: 'Rajdhani_500Medium',
+          fontSize: 12,
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="view-dashboard" size={24} color={color} />
+          ),
+        }}
+      />
       <Tab.Screen
         name="History"
         component={HistoryStackNavigator}
         options={{
-          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="history" size={24} color={color} />
+          ),
         }}
       />
-      <Tab.Screen name="Settings" component={SettingsStackNavigator} options={{ headerShown: false }} />
-    </Tab.Navigator>
-  );
-}
-
-function MainApp() {
-  const { theme } = useSettingsStore();
-  const isDark = theme === 'dark' || (theme === 'system' && true);
-  const headerColor = isDark ? 'black' : 'white';
-  const headerTextColor = isDark ? 'white' : 'black';
-  const contentColor = isDark ? 'black' : '#f3f4f6';
-
-  return (
-    <>
-      <StatusBar style={isDark ? "light" : "dark"} />
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: headerColor },
-          headerTintColor: headerTextColor,
-          contentStyle: { backgroundColor: contentColor },
-          animation: 'slide_from_right',
-          presentation: 'card',
+      <Tab.Screen
+        name="Settings"
+        component={SettingsStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cog" size={24} color={color} />
+          ),
         }}
-      >
-        <Stack.Screen
-          name="Main"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
-      </Stack.Navigator>
-    </>
+      />
+    </Tab.Navigator>
   );
 }
 
@@ -155,6 +139,8 @@ export default function App() {
     Orbitron_500Medium,
     Orbitron_600SemiBold,
     Orbitron_700Bold,
+    Orbitron_800ExtraBold,
+    Orbitron_900Black,
     Rajdhani_300Light,
     Rajdhani_400Regular,
     Rajdhani_500Medium,
@@ -162,32 +148,24 @@ export default function App() {
     Rajdhani_700Bold,
   });
 
-  const [isSplashAnimationFinished, setIsSplashAnimationFinished] = useState(false);
+  const { theme } = useSettingsStore();
+  const isDark = theme === 'dark' || (theme === 'system' && true);
 
   useEffect(() => {
+    // Settings are auto-loaded by persist middleware
     DatabaseService.init();
+
+    // FORCE HIDE SPLASH SCREEN IMMEDIATELY
+    SplashScreen.hideAsync().catch(console.warn);
   }, []);
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  const onLayoutRootView = useCallback(async () => {
-    // This function is now just a placeholder or can be removed if not needed for other layout logic
-  }, []);
-
-  if (!fontsLoaded) {
-    return null;
-  }
-
-  if (!isSplashAnimationFinished) {
-    return <CustomSplashScreen onFinish={() => setIsSplashAnimationFinished(true)} />;
-  }
+  // REMOVED BLOCKING CHECKS
+  // if (!fontsLoaded) return null;
+  // if (!isSplashAnimationFinished) ...
 
   return (
-    <NavigationContainer onReady={onLayoutRootView}>
+    <NavigationContainer>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <MainApp />
     </NavigationContainer>
   );

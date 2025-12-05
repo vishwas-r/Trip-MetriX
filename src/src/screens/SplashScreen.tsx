@@ -145,7 +145,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
                 {/* Logo below car */}
                 <Animated.View style={[styles.logoContainer, { opacity: fadeOpacity }]}>
                     <Image
-                        source={require('../../assets/icon.png')}
+                        source={require('../../assets/logo.png')}
                         style={{ width: 150, height: 150, resizeMode: 'contain' }}
                     />
                 </Animated.View>

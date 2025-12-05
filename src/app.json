@@ -38,8 +38,7 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Trip MetriX to use your location to track your trips."
         }
-      ],
-      "expo-pip"
+      ]
     ]
   }
 }

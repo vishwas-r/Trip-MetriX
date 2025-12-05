@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { LocationService, LocationData } from '../services/LocationService';
 import { Speedometer } from '../components/Speedometer';
 import { useSettingsStore } from '../store/settingsStore';
@@ -9,14 +9,14 @@ import { useCarStore } from '../store/useCarStore';
 import { useNavigation } from '@react-navigation/native';
 import { DashboardScreenNavigationProp } from '../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ExpoPip from 'expo-pip';
+
 import { LeafletMap } from '../components/LeafletMap';
 import { useKeepAwake } from 'expo-keep-awake';
 import { CalibrationModal } from '../components/CalibrationModal';
 
 export default function DashboardScreen() {
     useKeepAwake();
-    const { isHudMode, toggleHudMode, unit, setUnit, speedLimit, isSpeedLimitEnabled, toggleSpeedLimit, setSpeedLimit, accentColor, theme, isDebugEnabled, isPipEnabled, isMapEnabled, isKeepScreenOnEnabled, mapOrientation, setMapOrientation } = useSettingsStore();
+    const { isHudMode, toggleHudMode, unit, setUnit, speedLimit, isSpeedLimitEnabled, toggleSpeedLimit, setSpeedLimit, accentColor, theme, isDebugEnabled, isMapEnabled, isKeepScreenOnEnabled, mapOrientation, setMapOrientation } = useSettingsStore();
     const { isRecording, startTrip, stopTrip, currentLocation, path } = useTripStore();
     const { getSelectedCar, loadCars } = useCarStore();
     const selectedCar = getSelectedCar();
@@ -27,8 +27,24 @@ export default function DashboardScreen() {
 
     const navigation = useNavigation<DashboardScreenNavigationProp>();
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
 
-    const { isInPipMode } = ExpoPip.useIsInPip();
+    // Responsive Sizing
+    const headerBtnFontSize = Math.max(10, width * 0.03); // Min 10, scale with width
+    const headerBtnPadding = Math.max(8, width * 0.02);
+    const headerBtnMinWidth = Math.max(60, width * 0.15);
+
+    const tripBtnFontSize = Math.max(14, width * 0.04); // Reduced from 0.045
+    const tripBtnPadding = Math.max(16, width * 0.05); // Reduced from 0.08
+    const tripBtnMinWidth = Math.max(140, width * 0.35); // Reduced min width
+
+    const statusTextSize = Math.max(10, width * 0.032); // Reduced from 0.035
+    const vehicleTextSize = Math.max(12, width * 0.035);
+
+    // New responsive padding for status container
+    const statusContainerPadding = Math.max(8, width * 0.03);
+
+
 
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [isMapView, setIsMapView] = useState(false);
@@ -66,20 +82,12 @@ export default function DashboardScreen() {
             try {
                 await LocationService.startTracking();
             } catch (e) {
-                setErrorMsg('Permission to access location was denied');
+                setErrorMsg('Permission to access location was denied. Please enable "While using the app" location access.');
             }
         })();
     }, []);
 
-    // Handle Auto-PIP
-    useEffect(() => {
-        if (ExpoPip.isAvailable()) {
-            ExpoPip.setPictureInPictureParams({
-                autoEnterEnabled: isPipEnabled,
-                // aspectRatio: { width: 16, height: 9 
-            });
-        }
-    }, [isPipEnabled]);
+
 
     const location = currentLocation;
     const speed = location?.speed ?? 0;
@@ -96,14 +104,7 @@ export default function DashboardScreen() {
         }
     };
 
-    // PIP Mode
-    if (isInPipMode) {
-        return (
-            <View style={[styles.container, { backgroundColor: bgColor, justifyContent: 'center', padding: 0 }, isOverLimit && styles.alertBackground]}>
-                <Speedometer speed={speed} />
-            </View>
-        );
-    }
+
 
     return (
         <View style={[styles.container, { backgroundColor: bgColor, paddingTop: insets.top + 60 }, isOverLimit && styles.alertBackground]}>
@@ -114,10 +115,15 @@ export default function DashboardScreen() {
                         onPress={toggleSpeedLimit}
                         style={[styles.headerButton, {
                             borderColor: isSpeedLimitEnabled ? accentColor : secondaryTextColor,
-                            backgroundColor: isSpeedLimitEnabled ? accentColor : 'transparent'
+                            backgroundColor: isSpeedLimitEnabled ? accentColor : 'transparent',
+                            paddingHorizontal: headerBtnPadding,
+                            minWidth: headerBtnMinWidth
                         }]}
                     >
-                        <Text style={[styles.headerButtonText, { color: isSpeedLimitEnabled ? 'white' : secondaryTextColor }]}>
+                        <Text style={[styles.headerButtonText, {
+                            color: isSpeedLimitEnabled ? 'white' : secondaryTextColor,
+                            fontSize: headerBtnFontSize
+                        }]}>
                             LIMIT: {speedLimit}
                         </Text>
                     </TouchableOpacity>
@@ -135,21 +141,31 @@ export default function DashboardScreen() {
 
                 {/* Unit Button */}
                 <TouchableOpacity
-                    style={[styles.headerButton, { borderColor: accentColor, backgroundColor: 'transparent' }]}
+                    style={[styles.headerButton, {
+                        borderColor: accentColor,
+                        backgroundColor: 'transparent',
+                        paddingHorizontal: headerBtnPadding,
+                        minWidth: headerBtnMinWidth
+                    }]}
                     onPress={() => {
                         const nextUnit = unit === 'km/h' ? 'mph' : unit === 'mph' ? 'm/s' : 'km/h';
                         setUnit(nextUnit);
                     }}
                 >
-                    <Text style={[styles.headerButtonText, { color: accentColor }]}>{unit.toUpperCase()}</Text>
+                    <Text style={[styles.headerButtonText, { color: accentColor, fontSize: headerBtnFontSize }]}>{unit.toUpperCase()}</Text>
                 </TouchableOpacity>
 
                 {/* HUD Button */}
                 <TouchableOpacity
-                    style={[styles.headerButton, { borderColor: accentColor, backgroundColor: isHudMode ? accentColor : 'transparent' }]}
+                    style={[styles.headerButton, {
+                        borderColor: accentColor,
+                        backgroundColor: isHudMode ? accentColor : 'transparent',
+                        paddingHorizontal: headerBtnPadding,
+                        minWidth: headerBtnMinWidth
+                    }]}
                     onPress={toggleHudMode}
                 >
-                    <Text style={[styles.headerButtonText, { color: isHudMode ? 'white' : accentColor }]}>
+                    <Text style={[styles.headerButtonText, { color: isHudMode ? 'white' : accentColor, fontSize: headerBtnFontSize }]}>
                         {isHudMode ? 'HUD ON' : 'HUD OFF'}
                     </Text>
                 </TouchableOpacity>
@@ -157,10 +173,15 @@ export default function DashboardScreen() {
                 {/* Map Toggle Button */}
                 {isMapEnabled && (
                     <TouchableOpacity
-                        style={[styles.headerButton, { borderColor: accentColor, backgroundColor: isMapView ? accentColor : 'transparent' }]}
+                        style={[styles.headerButton, {
+                            borderColor: accentColor,
+                            backgroundColor: isMapView ? accentColor : 'transparent',
+                            paddingHorizontal: headerBtnPadding,
+                            minWidth: headerBtnMinWidth
+                        }]}
                         onPress={() => setIsMapView(!isMapView)}
                     >
-                        <Text style={[styles.headerButtonText, { color: isMapView ? 'white' : accentColor }]}>
+                        <Text style={[styles.headerButtonText, { color: isMapView ? 'white' : accentColor, fontSize: headerBtnFontSize }]}>
                             {isMapView ? 'MAP ON' : 'MAP OFF'}
                         </Text>
                     </TouchableOpacity>
@@ -215,8 +236,11 @@ export default function DashboardScreen() {
                                 </View>
 
                                 {/* Status Pill - Map */}
-                                <View style={[styles.statusContainer, styles.statusPillPosition, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-                                    <Text style={[styles.statusText, { color: isRecording ? '#ef4444' : 'white' }]}>
+                                <View style={[styles.statusContainer, styles.statusPillPosition, {
+                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                    paddingHorizontal: statusContainerPadding
+                                }]}>
+                                    <Text style={[styles.statusText, { color: isRecording ? '#ef4444' : 'white', fontSize: statusTextSize }]}>
                                         {isRecording ? '● REC' : 'LIVE VIEW'}
                                     </Text>
                                 </View>
@@ -225,8 +249,11 @@ export default function DashboardScreen() {
                             <View style={styles.speedometerContainer}>
                                 <Speedometer speed={speed} />
                                 {/* Status Pill - Speedometer */}
-                                <View style={[styles.statusContainer, styles.statusPillPosition, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-                                    <Text style={[styles.statusText, { color: isRecording ? '#ef4444' : 'white' }]}>
+                                <View style={[styles.statusContainer, styles.statusPillPosition, {
+                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                    paddingHorizontal: statusContainerPadding
+                                }]}>
+                                    <Text style={[styles.statusText, { color: isRecording ? '#ef4444' : 'white', fontSize: statusTextSize }]}>
                                         {isRecording ? '● REC' : 'LIVE VIEW'}
                                     </Text>
                                 </View>
@@ -251,19 +278,26 @@ export default function DashboardScreen() {
 
                     <View style={styles.bottomSection}>
                         <TouchableOpacity
-                            style={[styles.tripButton, isRecording ? styles.stopButton : styles.startButton, { borderColor: isRecording ? '#ef4444' : accentColor }]}
+                            style={[styles.tripButton, isRecording ? styles.stopButton : styles.startButton, {
+                                borderColor: isRecording ? '#ef4444' : accentColor,
+                                paddingHorizontal: tripBtnPadding,
+                                minWidth: tripBtnMinWidth
+                            }]}
                             onPress={isRecording ? stopTrip : startTrip}
                         >
-                            <Text style={[styles.tripButtonText, { color: isRecording ? '#ef4444' : accentColor }]}>
+                            <Text style={[styles.tripButtonText, {
+                                color: isRecording ? '#ef4444' : accentColor,
+                                fontSize: tripBtnFontSize
+                            }]}>
                                 {isRecording ? 'STOP TRIP' : 'START TRIP'}
                             </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            onPress={() => navigation.navigate('CarList')}
+                            onPress={() => navigation.navigate('Settings', { screen: 'CarList' })}
                             style={{ marginTop: 16, alignItems: 'center' }}
                         >
-                            <Text style={{ color: secondaryTextColor, fontFamily: 'Rajdhani_500Medium', fontSize: 14 }}>
+                            <Text style={{ color: secondaryTextColor, fontFamily: 'Rajdhani_500Medium', fontSize: vehicleTextSize }}>
                                 DRIVING: <Text style={{ color: accentColor, fontFamily: 'Orbitron_600SemiBold' }}>
                                     {selectedCar ? selectedCar.nickname : 'NO CAR SELECTED'}
                                 </Text>
@@ -415,7 +449,6 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
     },
     statusContainer: {
-        paddingHorizontal: 16,
         paddingVertical: 6,
         borderRadius: 20,
         borderWidth: 1,

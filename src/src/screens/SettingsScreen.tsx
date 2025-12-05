@@ -308,7 +308,7 @@ export default function SettingsScreen() {
 
                 <View style={styles.footer}>
                     <Image
-                        source={require('../../assets/icon.png')}
+                        source={require('../../assets/logo.png')}
                         style={styles.footerIcon}
                     />
                     <Text style={[styles.appNameText, { color: textColor }]}>Trip MetriX</Text>
