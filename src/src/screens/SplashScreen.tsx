@@ -146,7 +146,7 @@ export default function CustomSplashScreen({ onAnimationFinish }: CustomSplashSc
                 {/* Text Branding */}
                 <View style={styles.textContainer}>
                     <Text style={styles.brandText}>TRIP</Text>
-                    <Text style={styles.modelText}>MATRIX</Text>
+                    <Text style={styles.modelText}>METRIX</Text>
                 </View>
 
             </Animated.View>

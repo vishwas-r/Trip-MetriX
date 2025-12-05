@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Trip MatriX",
-    "slug": "trip-matrix",
+    "name": "Trip MetriX",
+    "slug": "trip-metrix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,13 +16,17 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.vishwas.tripmatrix",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.vishwas.tripmetrix",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,9 +36,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Trip MatriX to use your location to track your trips.",
-          "isAndroidBackgroundLocationEnabled": true,
-          "isAndroidForegroundServiceEnabled": true
+          "locationAlwaysAndWhenInUsePermission": "Allow Trip MetriX to use your location to track your trips."
         }
       ],
       "expo-pip"

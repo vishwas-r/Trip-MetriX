@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const db = SQLite.openDatabaseSync('tripmatrix.db');
+const db = SQLite.openDatabaseSync('tripmetrix.db');
 
 export interface Car {
     id: number;
