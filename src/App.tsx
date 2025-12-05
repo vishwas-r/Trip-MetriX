@@ -150,18 +150,24 @@ export default function App() {
 
   const { theme } = useSettingsStore();
   const isDark = theme === 'dark' || (theme === 'system' && true);
+  const [isSplashAnimationFinished, setIsSplashAnimationFinished] = useState(false);
 
   useEffect(() => {
     // Settings are auto-loaded by persist middleware
     DatabaseService.init();
-
-    // FORCE HIDE SPLASH SCREEN IMMEDIATELY
-    SplashScreen.hideAsync().catch(console.warn);
   }, []);
 
-  // REMOVED BLOCKING CHECKS
-  // if (!fontsLoaded) return null;
-  // if (!isSplashAnimationFinished) ...
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync().catch(console.warn);
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded || !isSplashAnimationFinished) {
+    return (
+      <CustomSplashScreen onFinish={() => setIsSplashAnimationFinished(true)} />
+    );
+  }
 
   return (
     <NavigationContainer>
