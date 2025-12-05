@@ -9,6 +9,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useCarStore } from '../store/useCarStore';
 import { DatabaseService, Car } from '../services/DatabaseService';
 import { ExportService } from '../services/ExportService';
+import { ScreenHeader } from '../components/ScreenHeader';
 
 export default function CarListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
@@ -21,12 +22,7 @@ export default function CarListScreen() {
     useEffect(() => {
         loadCars();
         navigation.setOptions({
-            headerShown: true,
-            headerTitle: 'My Vehicles',
-            headerStyle: { backgroundColor: isDark ? 'black' : 'white' },
-            headerTintColor: isDark ? 'white' : 'black',
-            headerTitleStyle: { fontFamily: 'Orbitron_600SemiBold' },
-            headerRight: () => null, // Remove header Add button
+            headerShown: false,
         });
     }, [navigation, isDark, accentColor]);
 
@@ -152,7 +148,12 @@ export default function CarListScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? 'black' : '#f3f4f6' }]}>
+        <View style={[styles.container, { backgroundColor: isDark ? 'black' : '#f3f4f6', paddingTop: insets.top }]}>
+            <ScreenHeader
+                title="My Garage"
+                showBackButton={true}
+                onBackPress={() => navigation.goBack()}
+            />
             <FlatList
                 data={cars}
                 renderItem={renderItem}
