@@ -168,18 +168,22 @@ export default function App() {
     DatabaseService.init();
   }, []);
 
-  const onLayoutRootView = useCallback(async () => {
+  useEffect(() => {
     if (fontsLoaded) {
-      // await SplashScreen.hideAsync(); // CustomSplashScreen handles this
+      SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  const onLayoutRootView = useCallback(async () => {
+    // This function is now just a placeholder or can be removed if not needed for other layout logic
+  }, []);
 
   if (!fontsLoaded) {
     return null;
   }
 
   if (!isSplashAnimationFinished) {
-    return <CustomSplashScreen onAnimationFinish={() => setIsSplashAnimationFinished(true)} />;
+    return <CustomSplashScreen onFinish={() => setIsSplashAnimationFinished(true)} />;
   }
 
   return (
