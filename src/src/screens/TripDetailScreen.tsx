@@ -96,6 +96,27 @@ export default function TripDetailScreen() {
                 title="Trip Info"
                 showBackButton={true}
                 onBackPress={() => navigation.goBack()}
+                rightAction={
+                    <TouchableOpacity onPress={() => {
+                        Alert.alert(
+                            "Delete Trip",
+                            "Are you sure you want to delete this trip? This action cannot be undone.",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                    text: "Delete",
+                                    style: "destructive",
+                                    onPress: () => {
+                                        DatabaseService.deleteTrip(trip.id);
+                                        navigation.goBack();
+                                    }
+                                }
+                            ]
+                        );
+                    }} style={{ padding: 4 }}>
+                        <Ionicons name="trash-outline" size={24} color={isDark ? '#ef4444' : '#dc2626'} />
+                    </TouchableOpacity>
+                }
             />
 
             <ScrollView style={[styles.container, { backgroundColor: bgColor }]}>
