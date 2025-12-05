@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Trip Xpert",
-    "slug": "trip-xpert",
+    "name": "Trip MatriX",
+    "slug": "trip-matrix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.vishwas.tripxpert",
+      "package": "com.vishwas.tripmatrix",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
@@ -32,7 +32,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Trip Xpert to use your location to track your trips.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Trip MatriX to use your location to track your trips.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

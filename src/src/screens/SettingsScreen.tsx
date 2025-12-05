@@ -311,7 +311,7 @@ export default function SettingsScreen() {
                         source={require('../../assets/icon.png')}
                         style={styles.footerIcon}
                     />
-                    <Text style={[styles.appNameText, { color: textColor }]}>Trip Xpert</Text>
+                    <Text style={[styles.appNameText, { color: textColor }]}>Trip MatriX</Text>
                     <Text style={[styles.versionText, { color: secondaryTextColor }]}>v1.0.0</Text>
                 </View>
             </ScrollView>

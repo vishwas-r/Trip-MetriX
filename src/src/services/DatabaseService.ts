@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const db = SQLite.openDatabaseSync('tripxpert.db');
+const db = SQLite.openDatabaseSync('tripmatrix.db');
 
 export interface Car {
     id: number;
@@ -99,6 +99,8 @@ export const DatabaseService = {
         );
         return result.lastInsertRowId;
     },
+
+
 
     getCars: (): Car[] => {
         return db.getAllSync('SELECT * FROM cars ORDER BY id DESC');
