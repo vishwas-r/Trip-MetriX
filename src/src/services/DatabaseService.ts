@@ -102,6 +102,13 @@ export const DatabaseService = {
 
 
 
+    updateCar: (car: Car) => {
+        db.runSync(
+            'UPDATE cars SET type = ?, make = ?, model = ?, variant = ?, regNumber = ?, nickname = ? WHERE id = ?',
+            car.type || 'car', car.make, car.model, car.variant, car.regNumber, car.nickname, car.id
+        );
+    },
+
     getCars: (): Car[] => {
         return db.getAllSync('SELECT * FROM cars ORDER BY id DESC');
     },

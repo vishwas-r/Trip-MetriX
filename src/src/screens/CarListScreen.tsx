@@ -132,6 +132,10 @@ export default function CarListScreen() {
                             <Ionicons name="download-outline" size={20} color={isDark ? '#60a5fa' : '#2563eb'} />
                         </TouchableOpacity>
 
+                        <TouchableOpacity onPress={() => navigation.navigate('AddCar', { carId: item.id })} style={styles.actionBtn}>
+                            <Ionicons name="pencil-outline" size={20} color={isDark ? '#fbbf24' : '#d97706'} />
+                        </TouchableOpacity>
+
                         {isSelected && (
                             <View style={styles.checkIcon}>
                                 <Ionicons name="checkmark-circle" size={24} color={accentColor} />

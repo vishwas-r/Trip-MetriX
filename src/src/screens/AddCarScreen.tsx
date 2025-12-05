@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SettingsStackParamList } from '../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,9 @@ export default function AddCarScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
     const insets = useSafeAreaInsets();
     const { theme, accentColor } = useSettingsStore();
-    const { addCar } = useCarStore();
+    const { addCar, updateCar, cars } = useCarStore();
+    const route = useRoute<RouteProp<SettingsStackParamList, 'AddCar'>>();
+    const editingCarId = route.params?.carId;
 
     const isDark = theme === 'dark' || (theme === 'system' && true);
 
@@ -22,20 +24,47 @@ export default function AddCarScreen() {
     const [regNumber, setRegNumber] = useState('');
     const [nickname, setNickname] = useState('');
 
+    React.useEffect(() => {
+        if (editingCarId) {
+            const carToEdit = cars.find(c => c.id === editingCarId);
+            if (carToEdit) {
+                setType(carToEdit.type);
+                setMake(carToEdit.make || '');
+                setModel(carToEdit.model || '');
+                setVariant(carToEdit.variant || '');
+                setRegNumber(carToEdit.regNumber || '');
+                setNickname(carToEdit.nickname);
+                navigation.setOptions({ headerTitle: 'Edit Vehicle' });
+            }
+        }
+    }, [editingCarId, cars, navigation]);
+
     const handleSave = () => {
         if (!nickname.trim()) {
             Alert.alert('Missing Fields', 'Please enter a Nickname for your vehicle.');
             return;
         }
 
-        addCar({
-            type,
-            make: make.trim(),
-            model: model.trim(),
-            variant: variant.trim(),
-            regNumber: regNumber.trim(),
-            nickname: nickname.trim(),
-        });
+        if (editingCarId) {
+            updateCar({
+                id: editingCarId,
+                type,
+                make: make.trim(),
+                model: model.trim(),
+                variant: variant.trim(),
+                regNumber: regNumber.trim(),
+                nickname: nickname.trim(),
+            });
+        } else {
+            addCar({
+                type,
+                make: make.trim(),
+                model: model.trim(),
+                variant: variant.trim(),
+                regNumber: regNumber.trim(),
+                nickname: nickname.trim(),
+            });
+        }
 
         navigation.goBack();
     };
@@ -59,7 +88,9 @@ export default function AddCarScreen() {
             style={[styles.container, { backgroundColor: isDark ? 'black' : '#f3f4f6' }]}
             contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 20 }}
         >
-            <Text style={[styles.header, { color: isDark ? 'white' : 'black' }]}>Add New Vehicle</Text>
+            <Text style={[styles.header, { color: isDark ? 'white' : 'black' }]}>
+                {editingCarId ? 'Edit Vehicle' : 'Add New Vehicle'}
+            </Text>
 
             {/* Type Selector */}
             <View style={styles.typeContainer}>
@@ -144,7 +175,9 @@ export default function AddCarScreen() {
                 style={[styles.saveButton, { backgroundColor: accentColor }]}
                 onPress={handleSave}
             >
-                <Text style={styles.saveButtonText}>Save Vehicle</Text>
+                <Text style={styles.saveButtonText}>
+                    {editingCarId ? 'Update Vehicle' : 'Save Vehicle'}
+                </Text>
             </TouchableOpacity>
         </ScrollView>
     );

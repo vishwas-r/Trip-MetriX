@@ -10,6 +10,7 @@ interface CarState {
     // Actions
     loadCars: () => void;
     addCar: (car: Omit<Car, 'id'>) => void;
+    updateCar: (car: Car) => void;
     deleteCar: (id: number) => void;
     selectCar: (id: number | null) => void;
     getSelectedCar: () => Car | undefined;
@@ -40,6 +41,17 @@ export const useCarStore = create<CarState>()(
                     }));
                 } catch (error) {
                     console.error('Failed to add car:', error);
+                }
+            },
+
+            updateCar: (car) => {
+                try {
+                    DatabaseService.updateCar(car);
+                    set((state) => ({
+                        cars: state.cars.map((c) => (c.id === car.id ? car : c)),
+                    }));
+                } catch (error) {
+                    console.error('Failed to update car:', error);
                 }
             },
 
