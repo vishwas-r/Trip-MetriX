@@ -1,6 +1,4 @@
-<img src="./src/assets/icon.png" height="100" alt="Trip MetriX Logo" />
-
-# Trip MetriX
+# <img src="./src/assets/icon.png" height="100" style="vertical-align: middle;" alt="Trip MetriX Logo" /> Trip MetriX
 
 Trip MetriX is your ultimate companion for vehicle management and trip tracking. Designed for simplicity and performance, it helps you keep a detailed log of your journeys and manage your vehicle garage with ease.
 
