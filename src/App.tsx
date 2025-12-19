@@ -75,31 +75,61 @@ function SettingsStackNavigator() {
   );
 }
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, View } from 'react-native';
+
 function MainApp() {
   const { theme, accentColor } = useSettingsStore();
+  const insets = useSafeAreaInsets();
 
   const isDark = theme === 'dark' || (theme === 'system' && true);
-  const tabBgColor = isDark ? 'black' : 'white';
-  const tabBorderColor = isDark ? '#333' : '#e5e7eb';
+  const tabBgColor = isDark ? '#1a1a1a' : '#ffffff';
+  const tabBorderColor = isDark ? '#333333' : '#e5e5e5';
   const inactiveColor = isDark ? '#666666' : '#999999';
+
+  // "World-class" design tweaks:
+  // 1. Dynamic height based on safe area
+  // 2. Proper padding for the home indicator/navigation buttons
+  // 3. Subtle shadow for depth (elevation on Android, shadow on iOS)
+  // 4. Clean border separation
+
+  const TAB_HEIGHT = 60;
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
-          borderTopColor: isDark ? '#333333' : '#e5e5e5',
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: tabBgColor,
+          borderTopColor: tabBorderColor,
+          borderTopWidth: 1,
+          height: TAB_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8, // Add padding if insets exist, else default
           paddingTop: 8,
+          elevation: 8, // Android shadow
+          shadowColor: '#000', // iOS shadow
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          position: 'absolute', // Optional: if we want it floating, but standard is usually fine. Sticking to standard for stability first.
+          bottom: 0,
+          left: 0,
+          right: 0,
         },
         tabBarActiveTintColor: accentColor,
         tabBarInactiveTintColor: inactiveColor,
         tabBarLabelStyle: {
           fontFamily: 'Rajdhani_500Medium',
           fontSize: 12,
+          marginBottom: insets.bottom > 0 ? 0 : 4, // Adjust label position based on insets
         },
+        tabBarBackground: () => (
+          isDark ? null : <View style={{ flex: 1, backgroundColor: tabBgColor }} />
+          // Ensure background is solid to cover content behind
+        ),
       })}
     >
       <Tab.Screen
@@ -132,6 +162,8 @@ function MainApp() {
     </Tab.Navigator>
   );
 }
+
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -170,9 +202,11 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <MainApp />
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <MainApp />
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }

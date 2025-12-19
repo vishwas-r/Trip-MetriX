@@ -18,24 +18,30 @@ export interface LocationData {
 export const LocationService = {
     _headingSubscription: null as Location.LocationSubscription | null,
 
+    async checkServicesEnabled() {
+        const enabled = await Location.hasServicesEnabledAsync();
+        return enabled;
+    },
+
     async requestPermissions() {
         const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
         if (foregroundStatus !== 'granted') return false;
 
         // Attempt background permission but don't block if denied
-        // Android 11+ requires separate requests and might deny background even if foreground is granted
         try {
             await Location.requestBackgroundPermissionsAsync();
         } catch (e) {
             console.log('Background permission request failed or rejected', e);
         }
-
-        // Return true as long as foreground is granted. 
-        // The foreground service will handle keeping the app alive.
         return true;
     },
 
     async startTracking() {
+        const servicesEnabled = await this.checkServicesEnabled();
+        if (!servicesEnabled) {
+            throw new Error('Location services disabled');
+        }
+
         const hasPermission = await this.requestPermissions();
         if (!hasPermission) {
             throw new Error('Location permission not granted');

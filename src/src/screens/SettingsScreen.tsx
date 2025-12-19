@@ -84,10 +84,13 @@ const NumericInput = ({ value, onChange, min, max, step = 1, textColor, backgrou
     );
 };
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function SettingsScreen() {
     const settings = useSettingsStore();
     const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
     const { theme, accentColor } = settings;
+    const insets = useSafeAreaInsets();
 
     // Theme Colors
     const isDark = theme === 'dark' || (theme === 'system' && true);
@@ -110,7 +113,7 @@ export default function SettingsScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: bgColor }]} edges={['top']}>
             <ScreenHeader title="Settings" />
             <CalibrationModal visible={isCalibrationVisible} onClose={() => setCalibrationVisible(false)} />
-            <ScrollView contentContainerStyle={styles.contentContainer}>
+            <ScrollView contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 80 }]}>
 
                 <SectionHeader title="Vehicle" color={secondaryTextColor} />
                 <SettingsSection backgroundColor={sectionBgColor}>

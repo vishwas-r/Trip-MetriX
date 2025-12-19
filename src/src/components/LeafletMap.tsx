@@ -15,6 +15,7 @@ interface LeafletMapProps {
     followUser?: boolean;
     isDark?: boolean;
     onMapEvent?: (event: { type: string; message?: string }) => void;
+    onError?: (error: string) => void;
 }
 
 export const LeafletMap: React.FC<LeafletMapProps> = ({
@@ -29,7 +30,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     showMarkers = false,
     followUser = true,
     isDark = true,
-    onMapEvent
+    onMapEvent,
+    onError
 }) => {
     const webViewRef = useRef<WebView>(null);
     const [isWebViewLoaded, setIsWebViewLoaded] = React.useState(false);
@@ -587,6 +589,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             }
             if (data.type === 'error') {
                 console.error("MapWebView Error:", data.message);
+                if (onError) onError(data.message);
             }
         } catch (e) {
             // Ignore
@@ -613,6 +616,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
                 onError={(syntheticEvent) => {
                     const { nativeEvent } = syntheticEvent;
                     console.warn('WebView error: ', nativeEvent);
+                    if (onError) onError('Failed to load map');
+                }}
+                onHttpError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.warn('WebView HTTP error: ', nativeEvent);
+                    if (onError) onError('Failed to load map resources');
                 }}
             />
         </View>

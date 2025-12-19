@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, Linking, AppState } from 'react-native';
 import { LocationService, LocationData } from '../services/LocationService';
 import { Speedometer } from '../components/Speedometer';
 import { useSettingsStore } from '../store/settingsStore';
@@ -52,19 +52,8 @@ export default function DashboardScreen() {
     const [isCalibrationVisible, setCalibrationVisible] = useState(false);
     const [showAccuracyWarning, setShowAccuracyWarning] = useState(false);
 
-    // Accuracy Monitoring
-    useEffect(() => {
-        if (isRecording && currentLocation?.accuracy) {
-            // If accuracy is worse than 20 meters for a sustained period (simplified here to just check current)
-            if (currentLocation.accuracy > 20) {
-                setShowAccuracyWarning(true);
-            } else {
-                setShowAccuracyWarning(false);
-            }
-        } else {
-            setShowAccuracyWarning(false);
-        }
-    }, [currentLocation, isRecording]);
+    const [permissionDenied, setPermissionDenied] = useState(false);
+    const [servicesDisabled, setServicesDisabled] = useState(false);
 
     // Theme Colors
     const isDark = theme === 'dark' || (theme === 'system' && true); // Default to dark for system for now or use useColorScheme
@@ -77,17 +66,39 @@ export default function DashboardScreen() {
     const overlayTextColor = isDark ? '#e5e7eb' : '#374151';
     const overlayBorderColor = isDark ? '#374151' : '#d1d5db';
 
-    useEffect(() => {
-        (async () => {
-            try {
-                await LocationService.startTracking();
-            } catch (e) {
-                setErrorMsg('Permission to access location was denied. Please enable "While using the app" location access.');
+    const startLocationTracking = async () => {
+        try {
+            setErrorMsg(null);
+            setPermissionDenied(false);
+            setServicesDisabled(false);
+            await LocationService.startTracking();
+        } catch (e: any) {
+            if (e.message === 'Location permission not granted') {
+                setPermissionDenied(true);
+                setErrorMsg('Location permission is required.');
+            } else if (e.message === 'Location services disabled') {
+                setServicesDisabled(true);
+                setErrorMsg('GPS is disabled.');
+            } else {
+                setErrorMsg('Failed to start location tracking.');
             }
-        })();
+        }
+    };
+
+    useEffect(() => {
+        startLocationTracking();
+
+        // Listen for app state changes to retry when coming back to foreground
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') {
+                startLocationTracking();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
     }, []);
-
-
 
     const location = currentLocation;
     const speed = location?.speed ?? 0;
@@ -104,10 +115,8 @@ export default function DashboardScreen() {
         }
     };
 
-
-
     return (
-        <View style={[styles.container, { backgroundColor: bgColor, paddingTop: insets.top + 60 }, isOverLimit && styles.alertBackground]}>
+        <View style={[styles.container, { backgroundColor: bgColor }, isOverLimit && styles.alertBackground]}>
             <View style={[styles.headerContainer, { top: insets.top + 10 }]}>
                 {/* Limit Button */}
                 <View style={styles.limitWrapper}>
@@ -190,9 +199,34 @@ export default function DashboardScreen() {
 
             <CalibrationModal visible={isCalibrationVisible} onClose={() => setCalibrationVisible(false)} />
 
-            {showAccuracyWarning && (
+            {/* Permission/Service Prompts */}
+            {(permissionDenied || servicesDisabled) && (
+                <View style={[styles.promptContainer, { top: insets.top + 80 }]}>
+                    <Ionicons name="alert-circle" size={24} color="#ef4444" />
+                    <Text style={styles.promptText}>
+                        {permissionDenied ? 'Location permission denied.' : 'GPS is disabled.'}
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.promptButton, { backgroundColor: accentColor }]}
+                        onPress={() => {
+                            if (Platform.OS === 'ios') {
+                                Linking.openURL('app-settings:');
+                            } else {
+                                if (permissionDenied) Linking.openSettings();
+                                else Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+                            }
+                        }}
+                    >
+                        <Text style={styles.promptButtonText}>
+                            {permissionDenied ? 'GRANT' : 'ENABLE'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {showAccuracyWarning && !permissionDenied && !servicesDisabled && (
                 <TouchableOpacity
-                    style={[styles.accuracyWarning, { backgroundColor: 'rgba(239, 68, 68, 0.9)' }]}
+                    style={[styles.accuracyWarning, { backgroundColor: 'rgba(239, 68, 68, 0.9)', top: insets.top + 80 }]}
                     onPress={() => setCalibrationVisible(true)}
                 >
                     <Ionicons name="warning" size={16} color="white" />
@@ -200,12 +234,19 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
             )}
 
-            {errorMsg ? (
-                <Text style={[styles.errorText, { color: 'red' }, isHudMode && styles.hudMode]}>{errorMsg}</Text>
+            {errorMsg && !permissionDenied && !servicesDisabled ? (
+                <Text style={[styles.errorText, { color: 'red', marginTop: insets.top + 100 }, isHudMode && styles.hudMode]}>{errorMsg}</Text>
             ) : (
                 <ScrollView
                     style={[styles.scrollContainer, isHudMode && styles.hudMode]}
-                    contentContainerStyle={styles.scrollContentContainer}
+                    contentContainerStyle={[
+                        styles.scrollContentContainer,
+                        {
+                            paddingTop: insets.top + 80, // Clear header
+                            paddingBottom: insets.bottom + 80, // Clear tab bar
+                            paddingHorizontal: 16
+                        }
+                    ]}
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.topSection}>
@@ -224,6 +265,7 @@ export default function DashboardScreen() {
                                     followUser={isFollowingUser}
                                     isDark={isDark}
                                     onMapEvent={handleMapEvent}
+                                    onError={(err) => setErrorMsg(err)}
                                 />
                                 {/* Speed Overlay */}
                                 <View style={[styles.mapOverlay, { backgroundColor: overlayBgColor, borderColor: overlayBorderColor, borderWidth: 1 }]}>
@@ -328,7 +370,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'black',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: 16,
+        // padding: 16, // Removed padding
     },
     hudMode: {
         transform: [{ scaleY: -1 }],
@@ -530,5 +572,33 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 12,
         fontFamily: 'Orbitron_600SemiBold',
+    },
+    promptContainer: {
+        position: 'absolute',
+        width: '90%',
+        zIndex: 20,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        padding: 16,
+        borderRadius: 16,
+        alignItems: 'center',
+        gap: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.5)',
+    },
+    promptText: {
+        color: 'white',
+        fontSize: 16,
+        fontFamily: 'Rajdhani_600SemiBold',
+        textAlign: 'center',
+    },
+    promptButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    promptButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontFamily: 'Orbitron_700Bold',
     },
 });
