@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../store/settingsStore';
 import { useNavigation } from '@react-navigation/native';
+import { isDarkTheme } from '../utils/theme';
 
 interface ScreenHeaderProps {
     title: string;
@@ -14,8 +15,9 @@ interface ScreenHeaderProps {
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, showBackButton = false, onBackPress, rightAction }) => {
     const { theme } = useSettingsStore();
     const navigation = useNavigation();
+    const systemScheme = useColorScheme();
 
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
     const textColor = isDark ? 'white' : '#111827';
     const borderColor = isDark ? '#374151' : '#e5e7eb';
     const bgColor = isDark ? 'black' : '#f3f4f6';

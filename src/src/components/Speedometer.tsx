@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Dimensions, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, Text, Dimensions, StyleSheet, Animated, Easing, Image, useColorScheme } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useSettingsStore } from '../store/settingsStore';
+import { isDarkTheme } from '../utils/theme';
 
 const { width } = Dimensions.get('window');
 const SIZE = width * 0.9;
@@ -20,8 +21,9 @@ interface SpeedometerProps {
 export const Speedometer: React.FC<SpeedometerProps> = ({ speed }) => {
     const { unit, accentColor, theme } = useSettingsStore();
     const animatedSpeed = useRef(new Animated.Value(0)).current;
+    const systemScheme = useColorScheme();
 
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
     const textColor = isDark ? 'white' : '#111827';
     const trackColor = isDark ? '#1f2937' : '#e5e7eb';
     const unitColor = isDark ? '#9ca3af' : '#6b7280';

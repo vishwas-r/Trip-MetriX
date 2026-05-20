@@ -13,7 +13,8 @@
       "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vishwas.tripmetrix"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +25,7 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION"
       ]
@@ -36,7 +38,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Trip MetriX to use your location to track your trips."
+          "locationWhenInUsePermission": "Allow Trip MetriX to show live speed and map position while the app is open.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Trip MetriX to continue recording active trips when the app is in the background.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
         }
       ]
     ]

@@ -1,19 +1,20 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DatabaseService } from './src/services/DatabaseService';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import DashboardScreen from './src/screens/DashboardScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import TripDetailScreen from './src/screens/TripDetailScreen';
 import CarListScreen from './src/screens/CarListScreen';
 import AddCarScreen from './src/screens/AddCarScreen';
-import { RootStackParamList, RootTabParamList, HistoryStackParamList, SettingsStackParamList } from './src/navigation/types';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { RootTabParamList, HistoryStackParamList, SettingsStackParamList } from './src/navigation/types';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSettingsStore } from './src/store/settingsStore';
+import { isDarkTheme } from './src/utils/theme';
 import * as SplashScreen from 'expo-splash-screen';
 import CustomSplashScreen from './src/screens/SplashScreen';
 import { useFonts, Orbitron_400Regular, Orbitron_500Medium, Orbitron_600SemiBold, Orbitron_700Bold, Orbitron_800ExtraBold, Orbitron_900Black } from '@expo-google-fonts/orbitron';
@@ -28,14 +29,14 @@ try {
   console.warn('SplashScreen.preventAutoHideAsync() failed', e);
 }
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const HistoryStack = createNativeStackNavigator<HistoryStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 
 function HistoryStackNavigator() {
   const { theme } = useSettingsStore();
-  const isDark = theme === 'dark' || (theme === 'system' && true);
+  const systemScheme = useColorScheme();
+  const isDark = isDarkTheme(theme, systemScheme);
   const contentColor = isDark ? 'black' : '#f3f4f6';
 
   return (
@@ -54,7 +55,8 @@ function HistoryStackNavigator() {
 
 function SettingsStackNavigator() {
   const { theme } = useSettingsStore();
-  const isDark = theme === 'dark' || (theme === 'system' && true);
+  const systemScheme = useColorScheme();
+  const isDark = isDarkTheme(theme, systemScheme);
   const contentColor = isDark ? 'black' : '#f3f4f6';
   const headerColor = isDark ? 'black' : 'white';
   const headerTextColor = isDark ? 'white' : 'black';
@@ -76,13 +78,14 @@ function SettingsStackNavigator() {
 }
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 function MainApp() {
   const { theme, accentColor } = useSettingsStore();
   const insets = useSafeAreaInsets();
+  const systemScheme = useColorScheme();
 
-  const isDark = theme === 'dark' || (theme === 'system' && true);
+  const isDark = isDarkTheme(theme, systemScheme);
   const tabBgColor = isDark ? '#1a1a1a' : '#ffffff';
   const tabBorderColor = isDark ? '#333333' : '#e5e5e5';
   const inactiveColor = isDark ? '#666666' : '#999999';
@@ -181,7 +184,8 @@ export default function App() {
   });
 
   const { theme } = useSettingsStore();
-  const isDark = theme === 'dark' || (theme === 'system' && true);
+  const systemScheme = useColorScheme();
+  const isDark = isDarkTheme(theme, systemScheme);
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = useState(false);
 
   useEffect(() => {

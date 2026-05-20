@@ -36,6 +36,7 @@ export interface TripPoint {
 const getDb = () => {
     if (!db) {
         db = SQLite.openDatabaseSync('tripmetrix.db');
+        db.execSync('PRAGMA foreign_keys = ON;');
     }
     return db;
 };
@@ -74,6 +75,9 @@ export const DatabaseService = {
         altitude REAL,
         FOREIGN KEY (tripId) REFERENCES trips (id)
       );
+      CREATE INDEX IF NOT EXISTS idx_trips_start_time ON trips(startTime DESC);
+      CREATE INDEX IF NOT EXISTS idx_trips_car_id ON trips(carId);
+      CREATE INDEX IF NOT EXISTS idx_trip_points_trip_time ON trip_points(tripId, timestamp ASC);
     `);
 
         // Migration to add carId to existing trips if needed (simple check)
@@ -120,6 +124,7 @@ export const DatabaseService = {
     },
 
     deleteCar: (id: number) => {
+        getDb().runSync('UPDATE trips SET carId = NULL WHERE carId = ?', id);
         getDb().runSync('DELETE FROM cars WHERE id = ?', id);
     },
 
@@ -160,5 +165,18 @@ export const DatabaseService = {
     deleteTrip: (tripId: number) => {
         getDb().runSync('DELETE FROM trip_points WHERE tripId = ?', tripId);
         getDb().runSync('DELETE FROM trips WHERE id = ?', tripId);
+    },
+
+    deleteTripsOlderThan: (days: number) => {
+        if (!Number.isFinite(days) || days <= 0) return;
+        const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+        getDb().runSync(
+            `DELETE FROM trip_points
+             WHERE tripId IN (
+               SELECT id FROM trips WHERE COALESCE(endTime, startTime) < ?
+             )`,
+            cutoff
+        );
+        getDb().runSync('DELETE FROM trips WHERE COALESCE(endTime, startTime) < ?', cutoff);
     }
 };

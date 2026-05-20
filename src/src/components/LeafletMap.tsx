@@ -623,6 +623,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
                     console.warn('WebView HTTP error: ', nativeEvent);
                     if (onError) onError('Failed to load map resources');
                 }}
+                setSupportMultipleWindows={false}
+                javaScriptCanOpenWindowsAutomatically={false}
+                allowFileAccess={false}
             />
         </View>
     );

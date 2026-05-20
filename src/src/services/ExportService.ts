@@ -3,6 +3,12 @@ import { Platform } from 'react-native';
 import { shareAsync } from 'expo-sharing';
 import { Trip, Car } from './DatabaseService';
 
+const escapeCSVCell = (value: string | number) => {
+    const raw = String(value);
+    const guarded = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+    return `"${guarded.replace(/"/g, '""')}"`;
+};
+
 export const ExportService = {
     generateCSV: (trips: Trip[], cars: Car[]): string => {
         const headers = [
@@ -47,8 +53,8 @@ export const ExportService = {
                 distanceKm,
                 maxSpeedKmh,
                 avgSpeedKmh,
-                `"${vehicleName}"` // Quote to handle commas in name
-            ].join(',');
+                vehicleName
+            ].map(escapeCSVCell).join(',');
         });
 
         return [headers.join(','), ...rows].join('\n');

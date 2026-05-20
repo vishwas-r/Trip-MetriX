@@ -6,6 +6,7 @@ import { useSettingsStore } from '../store/settingsStore';
 const LOCATION_TASK_NAME = 'background-location-task';
 
 export interface LocationData {
+    timestamp?: number;
     speed: number | null;
     accuracy: number | null;
     altitude: number | null;
@@ -17,64 +18,97 @@ export interface LocationData {
 
 export const LocationService = {
     _headingSubscription: null as Location.LocationSubscription | null,
+    _positionSubscription: null as Location.LocationSubscription | null,
 
     async checkServicesEnabled() {
         const enabled = await Location.hasServicesEnabledAsync();
         return enabled;
     },
 
-    async requestPermissions() {
+    async requestForegroundPermission() {
         const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-        if (foregroundStatus !== 'granted') return false;
-
-        // Attempt background permission but don't block if denied
-        try {
-            await Location.requestBackgroundPermissionsAsync();
-        } catch (e) {
-            console.log('Background permission request failed or rejected', e);
-        }
-        return true;
+        return foregroundStatus === 'granted';
     },
 
-    async startTracking() {
+    async requestBackgroundPermission() {
+        try {
+            const { status } = await Location.requestBackgroundPermissionsAsync();
+            return status === 'granted';
+        } catch (e) {
+            console.log('Background permission request failed or rejected', e);
+            return false;
+        }
+    },
+
+    async requestPermissions() {
+        return this.requestForegroundPermission();
+    },
+
+    async ensureReadyForLocation() {
         const servicesEnabled = await this.checkServicesEnabled();
         if (!servicesEnabled) {
             throw new Error('Location services disabled');
         }
 
-        const hasPermission = await this.requestPermissions();
+        const hasPermission = await this.requestForegroundPermission();
         if (!hasPermission) {
             throw new Error('Location permission not granted');
         }
+    },
 
-        const isStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+    async startHeadingTracking() {
+        if (this._headingSubscription) return;
 
-        // Start compass tracking if not already started
-        if (!this._headingSubscription) {
-            // Filter heading updates to reduce jitter (only update if change > 5 degrees)
-            // Note: Expo Location.watchHeadingAsync doesn't support 'filter' directly in options for all versions,
-            // but we can implement it manually or check documentation. 
-            // Actually, watchHeadingAsync takes a callback. It doesn't take options in the signature I used.
-            // Let's check if I can pass options. The signature is (callback).
-            // Wait, I should check if I can filter manually.
-
-            let lastHeading = 0;
-            this._headingSubscription = await Location.watchHeadingAsync((headingData) => {
-                // Manual filter: only update if change > 3 degrees
-                if (Math.abs(headingData.magHeading - lastHeading) > 3) {
-                    lastHeading = headingData.magHeading;
-                    const currentLoc = useTripStore.getState().currentLocation;
-                    if (currentLoc) {
-                        // Update store with new heading, keeping other location data
-                        useTripStore.getState().updateTripData({
-                            ...currentLoc,
-                            heading: headingData.magHeading
-                        });
-                    }
+        let lastHeading = 0;
+        this._headingSubscription = await Location.watchHeadingAsync((headingData) => {
+            if (Math.abs(headingData.magHeading - lastHeading) > 3) {
+                lastHeading = headingData.magHeading;
+                const currentLoc = useTripStore.getState().currentLocation;
+                if (currentLoc) {
+                    useTripStore.getState().updateTripData({
+                        ...currentLoc,
+                        heading: headingData.magHeading
+                    });
                 }
-            });
+            }
+        });
+    },
+
+    async startLiveTracking() {
+        await this.ensureReadyForLocation();
+        await this.startHeadingTracking();
+
+        if (this._positionSubscription) return;
+
+        const refreshRate = useSettingsStore.getState().refreshRate;
+
+        this._positionSubscription = await Location.watchPositionAsync(
+            {
+                accuracy: Location.Accuracy.BestForNavigation,
+                timeInterval: refreshRate,
+                distanceInterval: 1,
+            },
+            handleLocationObject
+        );
+    },
+
+    async stopLiveTracking() {
+        if (this._positionSubscription) {
+            this._positionSubscription.remove();
+            this._positionSubscription = null;
+        }
+    },
+
+    async startTripTracking() {
+        await this.startLiveTracking();
+
+        const backgroundGranted = await this.requestBackgroundPermission();
+        if (!backgroundGranted) {
+            console.log('Background location permission not granted; recording will continue while the app is active.');
+            return;
         }
 
+        const isStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
         if (isStarted) return;
 
         const refreshRate = useSettingsStore.getState().refreshRate;
@@ -84,29 +118,73 @@ export const LocationService = {
             timeInterval: refreshRate,
             distanceInterval: 0,
             foregroundService: {
-                notificationTitle: "Xcelerate",
+                notificationTitle: "Trip MetriX",
                 notificationBody: "Tracking your trip...",
                 notificationColor: "#3b82f6",
             },
         });
     },
 
-    async stopTracking() {
+    async stopTripTracking() {
         const isStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
         if (isStarted) {
             await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
         }
+    },
 
+    async stopTracking() {
+        await this.stopTripTracking();
+        await this.stopLiveTracking();
         if (this._headingSubscription) {
             this._headingSubscription.remove();
             this._headingSubscription = null;
         }
     },
 
+    async startTracking() {
+        await this.startTripTracking();
+    },
+
     async restartTracking() {
+        const isRecording = useTripStore.getState().isRecording;
         await this.stopTracking();
-        await this.startTracking();
+        if (isRecording) {
+            await this.startTripTracking();
+        } else {
+            await this.startLiveTracking();
+        }
     }
+};
+
+const handleLocationObject = (location: Location.LocationObject) => {
+    let speed = location.coords.speed;
+    if (speed !== null && speed < 0.25) {
+        speed = 0;
+    }
+
+    // @ts-ignore - native extras are platform-specific and not typed by Expo.
+    const extras = location.extras;
+
+    let heading = location.coords.heading;
+    if (LocationService._headingSubscription) {
+        const currentHeading = useTripStore.getState().currentLocation?.heading;
+        if (currentHeading !== undefined && currentHeading !== null) {
+            heading = currentHeading;
+        }
+    }
+
+    const locationData: LocationData = {
+        timestamp: location.timestamp,
+        speed,
+        accuracy: location.coords.accuracy,
+        altitude: location.coords.altitude,
+        heading,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        extras
+    };
+
+    useTripStore.getState().updateTripData(locationData);
 };
 
 // Define the background task in the global scope
@@ -119,36 +197,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
         const { locations } = data as { locations: Location.LocationObject[] };
         const location = locations[0];
         if (location) {
-            // Filter noise: if speed is very low (< 0.9 km/h approx 0.25 m/s), consider it 0
-            let speed = location.coords.speed;
-            if (speed !== null && speed < 0.25) {
-                speed = 0;
-            }
-
-            // @ts-ignore
-            const extras = location.extras;
-
-            // Determine heading: use existing store heading if compass is active, otherwise use GPS heading
-            let heading = location.coords.heading;
-            if (LocationService._headingSubscription) {
-                const currentHeading = useTripStore.getState().currentLocation?.heading;
-                if (currentHeading !== undefined && currentHeading !== null) {
-                    heading = currentHeading;
-                }
-            }
-
-            const locationData: LocationData = {
-                speed: speed,
-                accuracy: location.coords.accuracy,
-                altitude: location.coords.altitude,
-                heading: heading,
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-                extras: extras
-            };
-
-            // Update the store directly from the background task
-            useTripStore.getState().updateTripData(locationData);
+            handleLocationObject(location);
         }
     }
 });

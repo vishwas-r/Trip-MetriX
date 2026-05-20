@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, Linking, AppState } from 'react-native';
-import { LocationService, LocationData } from '../services/LocationService';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, Linking, AppState, useColorScheme } from 'react-native';
+import { LocationService } from '../services/LocationService';
 import { Speedometer } from '../components/Speedometer';
 import { useSettingsStore } from '../store/settingsStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,11 +13,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LeafletMap } from '../components/LeafletMap';
 import { useKeepAwake } from 'expo-keep-awake';
 import { CalibrationModal } from '../components/CalibrationModal';
+import { isDarkTheme } from '../utils/theme';
+
+const KeepAwakeGate = () => {
+    useKeepAwake();
+    return null;
+};
 
 export default function DashboardScreen() {
-    useKeepAwake();
     const { isHudMode, toggleHudMode, unit, setUnit, speedLimit, isSpeedLimitEnabled, toggleSpeedLimit, setSpeedLimit, accentColor, theme, isDebugEnabled, isMapEnabled, isKeepScreenOnEnabled, mapOrientation, setMapOrientation } = useSettingsStore();
-    const { isRecording, startTrip, stopTrip, currentLocation, path } = useTripStore();
+    const { isRecording, startTrip, stopTrip, currentLocation, currentDistance, startTime, path } = useTripStore();
     const { getSelectedCar, loadCars } = useCarStore();
     const selectedCar = getSelectedCar();
 
@@ -28,6 +33,7 @@ export default function DashboardScreen() {
     const navigation = useNavigation<DashboardScreenNavigationProp>();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
+    const systemScheme = useColorScheme();
 
     // Responsive Sizing
     const headerBtnFontSize = Math.max(10, width * 0.03); // Min 10, scale with width
@@ -54,9 +60,10 @@ export default function DashboardScreen() {
 
     const [permissionDenied, setPermissionDenied] = useState(false);
     const [servicesDisabled, setServicesDisabled] = useState(false);
+    const [elapsedMs, setElapsedMs] = useState(0);
 
     // Theme Colors
-    const isDark = theme === 'dark' || (theme === 'system' && true); // Default to dark for system for now or use useColorScheme
+    const isDark = isDarkTheme(theme, systemScheme);
     const bgColor = isDark ? 'black' : '#f3f4f6';
     const textColor = isDark ? 'white' : '#111827';
     const secondaryTextColor = isDark ? '#9ca3af' : '#4b5563';
@@ -71,7 +78,11 @@ export default function DashboardScreen() {
             setErrorMsg(null);
             setPermissionDenied(false);
             setServicesDisabled(false);
-            await LocationService.startTracking();
+            if (useTripStore.getState().isRecording) {
+                await LocationService.startTripTracking();
+            } else {
+                await LocationService.startLiveTracking();
+            }
         } catch (e: any) {
             if (e.message === 'Location permission not granted') {
                 setPermissionDenied(true);
@@ -97,8 +108,28 @@ export default function DashboardScreen() {
 
         return () => {
             subscription.remove();
+            if (!useTripStore.getState().isRecording) {
+                LocationService.stopTracking().catch(console.warn);
+            }
         };
     }, []);
+
+    useEffect(() => {
+        const accuracy = currentLocation?.accuracy;
+        setShowAccuracyWarning(typeof accuracy === 'number' && accuracy > 50);
+    }, [currentLocation?.accuracy]);
+
+    useEffect(() => {
+        if (!isRecording || !startTime) {
+            setElapsedMs(0);
+            return;
+        }
+
+        const updateElapsed = () => setElapsedMs(Date.now() - startTime);
+        updateElapsed();
+        const timer = setInterval(updateElapsed, 1000);
+        return () => clearInterval(timer);
+    }, [isRecording, startTime]);
 
     const location = currentLocation;
     const speed = location?.speed ?? 0;
@@ -115,8 +146,48 @@ export default function DashboardScreen() {
         }
     };
 
+    const handleStartTrip = async () => {
+        try {
+            setErrorMsg(null);
+            await LocationService.startTripTracking();
+            startTrip(useTripStore.getState().currentLocation);
+        } catch (e: any) {
+            if (e.message === 'Location permission not granted') {
+                setPermissionDenied(true);
+                setErrorMsg('Location permission is required.');
+            } else if (e.message === 'Location services disabled') {
+                setServicesDisabled(true);
+                setErrorMsg('GPS is disabled.');
+            } else {
+                setErrorMsg('Failed to start trip tracking.');
+            }
+        }
+    };
+
+    const handleStopTrip = async () => {
+        stopTrip();
+        try {
+            await LocationService.stopTripTracking();
+            await LocationService.startLiveTracking();
+        } catch (e) {
+            console.warn('Failed to return to live tracking', e);
+        }
+    };
+
+    const formatElapsed = (ms: number) => {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+        }
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: bgColor }, isOverLimit && styles.alertBackground]}>
+            {isKeepScreenOnEnabled && isRecording && <KeepAwakeGate />}
             <View style={[styles.headerContainer, { top: insets.top + 10 }]}>
                 {/* Limit Button */}
                 <View style={styles.limitWrapper}>
@@ -319,13 +390,27 @@ export default function DashboardScreen() {
                     </View>
 
                     <View style={styles.bottomSection}>
+                        {isRecording && (
+                            <View style={[styles.recordingStats, { borderColor: overlayBorderColor, backgroundColor: overlayBgColor }]}>
+                                <View style={styles.recordingStat}>
+                                    <Text style={[styles.recordingLabel, { color: secondaryTextColor }]}>DISTANCE</Text>
+                                    <Text style={[styles.recordingValue, { color: textColor }]}>{(currentDistance / 1000).toFixed(2)} km</Text>
+                                </View>
+                                <View style={[styles.recordingDivider, { backgroundColor: overlayBorderColor }]} />
+                                <View style={styles.recordingStat}>
+                                    <Text style={[styles.recordingLabel, { color: secondaryTextColor }]}>TIME</Text>
+                                    <Text style={[styles.recordingValue, { color: textColor }]}>{formatElapsed(elapsedMs)}</Text>
+                                </View>
+                            </View>
+                        )}
+
                         <TouchableOpacity
                             style={[styles.tripButton, isRecording ? styles.stopButton : styles.startButton, {
                                 borderColor: isRecording ? '#ef4444' : accentColor,
                                 paddingHorizontal: tripBtnPadding,
                                 minWidth: tripBtnMinWidth
                             }]}
-                            onPress={isRecording ? stopTrip : startTrip}
+                            onPress={isRecording ? handleStopTrip : handleStartTrip}
                         >
                             <Text style={[styles.tripButtonText, {
                                 color: isRecording ? '#ef4444' : accentColor,
@@ -547,6 +632,31 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 8,
         width: '90%',
+    },
+    recordingStats: {
+        flexDirection: 'row',
+        borderWidth: 1,
+        borderRadius: 12,
+        marginBottom: 16,
+        overflow: 'hidden',
+        width: '88%',
+    },
+    recordingStat: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    recordingLabel: {
+        fontSize: 11,
+        fontFamily: 'Rajdhani_600SemiBold',
+        marginBottom: 2,
+    },
+    recordingValue: {
+        fontSize: 18,
+        fontFamily: 'Orbitron_700Bold',
+    },
+    recordingDivider: {
+        width: 1,
     },
     debugLabel: {
         fontSize: 12,

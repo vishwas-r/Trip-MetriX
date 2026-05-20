@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, useColorScheme } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { TripDetailScreenRouteProp } from '../navigation/types';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { LeafletMap } from '../components/LeafletMap';
 import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { isDarkTheme } from '../utils/theme';
 
 export default function TripDetailScreen() {
     const route = useRoute<TripDetailScreenRouteProp>();
@@ -17,12 +18,13 @@ export default function TripDetailScreen() {
     const { trip } = route.params;
     const { theme, accentColor } = useSettingsStore();
     const insets = useSafeAreaInsets();
+    const systemScheme = useColorScheme();
     const [tripPoints, setTripPoints] = useState<TripPoint[]>([]);
     const [startAddress, setStartAddress] = useState<string>('Loading address...');
     const [endAddress, setEndAddress] = useState<string>('Loading address...');
 
     // Theme Colors
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
     const bgColor = isDark ? 'black' : '#f3f4f6';
     const cardColor = isDark ? '#1f2937' : 'white';
     const textColor = isDark ? 'white' : '#111827';

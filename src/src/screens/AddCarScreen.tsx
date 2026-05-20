@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, useColorScheme } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SettingsStackParamList } from '../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettingsStore } from '../store/settingsStore';
 import { useCarStore } from '../store/useCarStore';
+import { isDarkTheme } from '../utils/theme';
 
 export default function AddCarScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
@@ -14,8 +15,9 @@ export default function AddCarScreen() {
     const { addCar, updateCar, cars } = useCarStore();
     const route = useRoute<RouteProp<SettingsStackParamList, 'AddCar'>>();
     const editingCarId = route.params?.carId;
+    const systemScheme = useColorScheme();
 
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
 
     const [type, setType] = useState<'car' | 'bike'>('car');
     const [make, setMake] = useState('');

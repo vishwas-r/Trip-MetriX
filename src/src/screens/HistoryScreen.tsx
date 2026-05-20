@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, useColorScheme } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { DatabaseService, Trip } from '../services/DatabaseService';
 import { HistoryScreenNavigationProp } from '../navigation/types';
@@ -10,18 +10,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ExportService } from '../services/ExportService';
+import { isDarkTheme } from '../utils/theme';
+
+const toLocalDateKey = (timestamp: number | Date) => {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 export default function HistoryScreen() {
     const [trips, setTrips] = useState<Trip[]>([]);
     const [selectedDate, setSelectedDate] = useState<string>('');
-    const [currentMonth, setCurrentMonth] = useState<string>(new Date().toISOString().split('T')[0].substring(0, 7)); // YYYY-MM
+    const [currentMonth, setCurrentMonth] = useState<string>(toLocalDateKey(new Date()).substring(0, 7)); // YYYY-MM
     const navigation = useNavigation<HistoryScreenNavigationProp>();
     const { theme, accentColor } = useSettingsStore();
     const { cars, loadCars } = useCarStore();
     const insets = useSafeAreaInsets();
+    const systemScheme = useColorScheme();
 
     // Theme Colors
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
     const bgColor = isDark ? 'black' : '#f3f4f6';
     const cardColor = isDark ? '#1f2937' : 'white';
     const textColor = isDark ? 'white' : '#111827';
@@ -34,8 +44,9 @@ export default function HistoryScreen() {
         React.useCallback(() => {
             loadCars();
             const { selectedCarId } = useCarStore.getState();
-            const { isShowAllTripsEnabled } = useSettingsStore.getState();
+            const { isShowAllTripsEnabled, historyRetentionDays } = useSettingsStore.getState();
 
+            DatabaseService.deleteTripsOlderThan(historyRetentionDays);
             let data = DatabaseService.getTrips();
 
             if (!isShowAllTripsEnabled && selectedCarId) {
@@ -50,7 +61,7 @@ export default function HistoryScreen() {
 
             setSelectedDate(current => {
                 if (!current) {
-                    return new Date().toISOString().split('T')[0];
+                    return toLocalDateKey(new Date());
                 }
                 return current;
             });
@@ -115,16 +126,14 @@ export default function HistoryScreen() {
     // Monthly Stats
     const monthlyStats = useMemo(() => {
         const monthTrips = trips.filter(trip => {
-            const tripDate = new Date(trip.startTime).toISOString().split('T')[0];
+            const tripDate = toLocalDateKey(trip.startTime);
             return tripDate.startsWith(currentMonth);
         });
 
         const totalDistance = monthTrips.reduce((sum, trip) => sum + trip.distance, 0);
         const totalTime = monthTrips.reduce((sum, trip) => sum + (trip.endTime ? trip.endTime - trip.startTime : 0), 0);
         const maxSpeed = monthTrips.reduce((max, trip) => Math.max(max, trip.maxSpeed), 0);
-        const avgSpeed = monthTrips.length > 0
-            ? monthTrips.reduce((sum, trip) => sum + trip.avgSpeed, 0) / monthTrips.length
-            : 0;
+        const avgSpeed = totalTime > 0 ? totalDistance / (totalTime / 1000) : 0;
 
         return {
             distance: (totalDistance / 1000).toFixed(0),
@@ -139,7 +148,7 @@ export default function HistoryScreen() {
         const marks: any = {};
 
         trips.forEach(trip => {
-            const date = new Date(trip.startTime).toISOString().split('T')[0];
+            const date = toLocalDateKey(trip.startTime);
             marks[date] = {
                 marked: true,
                 dotColor: accentColor
@@ -161,7 +170,7 @@ export default function HistoryScreen() {
     const filteredTrips = useMemo(() => {
         if (!selectedDate) return [];
         return trips.filter(trip => {
-            const tripDate = new Date(trip.startTime).toISOString().split('T')[0];
+            const tripDate = toLocalDateKey(trip.startTime);
             return tripDate === selectedDate;
         }).sort((a, b) => b.startTime - a.startTime);
     }, [trips, selectedDate]);

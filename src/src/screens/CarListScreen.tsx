@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, useColorScheme } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SettingsStackParamList } from '../navigation/types';
@@ -10,14 +10,16 @@ import { useCarStore } from '../store/useCarStore';
 import { DatabaseService, Car } from '../services/DatabaseService';
 import { ExportService } from '../services/ExportService';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { isDarkTheme } from '../utils/theme';
 
 export default function CarListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
     const insets = useSafeAreaInsets();
     const { theme, accentColor } = useSettingsStore();
     const { cars, loadCars, deleteCar, selectCar, selectedCarId } = useCarStore();
+    const systemScheme = useColorScheme();
 
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
 
     useEffect(() => {
         loadCars();

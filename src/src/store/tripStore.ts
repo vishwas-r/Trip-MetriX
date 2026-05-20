@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DatabaseService } from '../services/DatabaseService';
-import { LocationData } from '../services/LocationService';
+import type { LocationData } from '../services/LocationService';
 import { useCarStore } from './useCarStore';
 
 interface TripState {
@@ -12,12 +14,37 @@ interface TripState {
     currentLocation: LocationData | null;
     path: { latitude: number; longitude: number }[];
 
-    startTrip: () => void;
+    startTrip: (initialLocation?: LocationData | null) => void;
     stopTrip: () => void;
     updateTripData: (location: LocationData) => void;
 }
 
-export const useTripStore = create<TripState>((set, get) => ({
+const haversineDistance = (
+    from: { latitude: number; longitude: number },
+    to: { latitude: number; longitude: number }
+) => {
+    const R = 6371e3;
+    const phi1 = from.latitude * Math.PI / 180;
+    const phi2 = to.latitude * Math.PI / 180;
+    const deltaPhi = (to.latitude - from.latitude) * Math.PI / 180;
+    const deltaLambda = (to.longitude - from.longitude) * Math.PI / 180;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) *
+        Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+};
+
+const isUsableRecordingPoint = (location: LocationData) => {
+    const accuracy = location.accuracy ?? Number.POSITIVE_INFINITY;
+    return accuracy <= 75;
+};
+
+export const useTripStore = create<TripState>()(
+    persist(
+        (set, get) => ({
     isRecording: false,
     currentTripId: null,
     currentDistance: 0,
@@ -26,16 +53,28 @@ export const useTripStore = create<TripState>((set, get) => ({
     currentLocation: null,
     path: [],
 
-    startTrip: () => {
+    startTrip: (initialLocation = null) => {
         const selectedCarId = useCarStore.getState().selectedCarId;
         const tripId = DatabaseService.startTrip(selectedCarId);
+        const startLocation = initialLocation ?? null;
+        if (startLocation && isUsableRecordingPoint(startLocation)) {
+            DatabaseService.addTripPoint(tripId, {
+                timestamp: startLocation.timestamp ?? Date.now(),
+                latitude: startLocation.latitude,
+                longitude: startLocation.longitude,
+                speed: startLocation.speed ?? 0,
+                accuracy: startLocation.accuracy ?? 0,
+                altitude: startLocation.altitude ?? 0,
+            });
+        }
         set({
             isRecording: true,
             currentTripId: tripId,
             currentDistance: 0,
             maxSpeed: 0,
             startTime: Date.now(),
-            path: [],
+            currentLocation: startLocation,
+            path: startLocation ? [{ latitude: startLocation.latitude, longitude: startLocation.longitude }] : [],
         });
     },
 
@@ -46,7 +85,7 @@ export const useTripStore = create<TripState>((set, get) => ({
             const avgSpeed = duration > 0 ? currentDistance / (duration / 1000) : 0;
             DatabaseService.endTrip(currentTripId, currentDistance, maxSpeed, avgSpeed);
         }
-        set({ isRecording: false, currentTripId: null, path: [] });
+        set({ isRecording: false, currentTripId: null, startTime: null, path: [] });
     },
 
     updateTripData: (location: LocationData) => {
@@ -63,28 +102,27 @@ export const useTripStore = create<TripState>((set, get) => ({
             return;
         }
 
-        // Calculate distance if we have a previous location
+        const pointIsUsable = isUsableRecordingPoint(location);
+
+        // Calculate distance if we have a previous location. Guardrails reject
+        // noisy jumps while still keeping the live dashboard updated.
         let distIncrement = 0;
-        if (isRecording && currentLocation) {
-            const R = 6371e3; // metres
-            const φ1 = currentLocation.latitude * Math.PI / 180;
-            const φ2 = location.latitude * Math.PI / 180;
-            const Δφ = (location.latitude - currentLocation.latitude) * Math.PI / 180;
-            const Δλ = (location.longitude - currentLocation.longitude) * Math.PI / 180;
+        const d = currentLocation ? haversineDistance(currentLocation, location) : 0;
+        const previousTimestamp = currentLocation?.timestamp ?? Date.now();
+        const currentTimestamp = location.timestamp ?? Date.now();
+        const elapsedSeconds = Math.max((currentTimestamp - previousTimestamp) / 1000, 0.1);
+        const impliedSpeed = d / elapsedSeconds;
+        const measuredSpeed = location.speed ?? impliedSpeed;
+        const isPlausibleMovement = impliedSpeed <= 120 && measuredSpeed <= 120;
 
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-            const d = R * c; // in metres
-
-            if ((location.speed ?? 0) > 0) {
+        if (isRecording && currentLocation && pointIsUsable && isPlausibleMovement) {
+            if (measuredSpeed > 0.25 || d > 3) {
                 distIncrement = d;
             }
         }
 
-        const newPath = isRecording ? [...path, { latitude: location.latitude, longitude: location.longitude }] : path;
+        const shouldAddPathPoint = isRecording && pointIsUsable && isPlausibleMovement && (path.length === 0 || d >= 2 || elapsedSeconds >= 2);
+        const newPath = shouldAddPathPoint ? [...path, { latitude: location.latitude, longitude: location.longitude }] : path;
 
         set({
             currentLocation: location,
@@ -92,13 +130,13 @@ export const useTripStore = create<TripState>((set, get) => ({
             path: newPath
         });
 
-        if (!isRecording || !currentTripId) return;
+        if (!isRecording || !currentTripId || !pointIsUsable || !isPlausibleMovement) return;
 
-        const speed = location.speed ?? 0;
+        const speed = measuredSpeed;
         const newMaxSpeed = Math.max(maxSpeed, speed);
 
         DatabaseService.addTripPoint(currentTripId, {
-            timestamp: Date.now(),
+            timestamp: currentTimestamp,
             latitude: location.latitude,
             longitude: location.longitude,
             speed: speed,
@@ -108,4 +146,17 @@ export const useTripStore = create<TripState>((set, get) => ({
 
         set({ maxSpeed: newMaxSpeed });
     },
-}));
+        }),
+        {
+            name: 'active-trip-storage',
+            storage: createJSONStorage(() => AsyncStorage),
+            partialize: (state) => ({
+                isRecording: state.isRecording,
+                currentTripId: state.currentTripId,
+                currentDistance: state.currentDistance,
+                maxSpeed: state.maxSpeed,
+                startTime: state.startTime,
+            }),
+        }
+    )
+);

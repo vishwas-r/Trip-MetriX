@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Switch, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Switch, Image, ScrollView, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,7 +8,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { LocationService } from '../services/LocationService';
 import { CalibrationModal } from '../components/CalibrationModal';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { RootStackParamList, SettingsStackParamList } from '../navigation/types';
+import { SettingsStackParamList } from '../navigation/types';
+import { isDarkTheme } from '../utils/theme';
 
 const COLORS = ['#00C2FF', '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899'];
 
@@ -91,9 +92,10 @@ export default function SettingsScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
     const { theme, accentColor } = settings;
     const insets = useSafeAreaInsets();
+    const systemScheme = useColorScheme();
 
     // Theme Colors
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const isDark = isDarkTheme(theme, systemScheme);
     const bgColor = isDark ? 'black' : '#f2f2f7'; // iOS system gray 6 for light mode
     const sectionBgColor = isDark ? '#1c1c1e' : 'white'; // iOS system gray 6 dark / white light
     const textColor = isDark ? 'white' : 'black';
@@ -106,7 +108,11 @@ export default function SettingsScreen() {
     const handleRefreshRateChange = async (seconds: number) => {
         const ms = seconds * 1000;
         settings.setRefreshRate(ms);
-        await LocationService.restartTracking();
+        try {
+            await LocationService.restartTracking();
+        } catch (error) {
+            console.log('Location restart skipped:', error);
+        }
     };
 
     return (

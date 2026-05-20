@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../store/settingsStore';
 import * as Location from 'expo-location';
+import { isDarkTheme } from '../utils/theme';
 
 interface CalibrationModalProps {
     visible: boolean;
@@ -11,7 +12,8 @@ interface CalibrationModalProps {
 
 export const CalibrationModal: React.FC<CalibrationModalProps> = ({ visible, onClose }) => {
     const { theme, accentColor } = useSettingsStore();
-    const isDark = theme === 'dark' || (theme === 'system' && true);
+    const systemScheme = useColorScheme();
+    const isDark = isDarkTheme(theme, systemScheme);
 
     const bgColor = isDark ? '#1c1c1e' : 'white';
     const textColor = isDark ? 'white' : 'black';
